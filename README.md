@@ -63,15 +63,29 @@ python server.py
 `mcp.run()` 默认走 stdio 传输，服务通过标准输入输出与客户端通信。
 注意：stdio 模式下终端看起来会「卡住」，这是正常的，它必须由 MCP 客户端拉起，不要手动运行后期待输出。
 
-**方式二：SSE 模式（客户端通过网络连接时）**
+**方式二：以包的方式运行**
 
-将 `server.py` 末尾改为：
-
-```python
-mcp.run(transport="sse")     # 默认监听 http://127.0.0.1:8000/sse
+```bash
+pip install -e .
+python -m date_tool_mcp          # 等价于 date-tool-mcp
 ```
 
-启动后保持该终端不关闭，再用客户端连接该地址。
+**方式三：HTTP 模式（客户端通过网络连接时）**
+
+```bash
+python -m date_tool_mcp --transport sse               # http://127.0.0.1:8000/sse
+python -m date_tool_mcp --transport streamable-http   # http://127.0.0.1:8000/mcp
+```
+
+可用 `--host` / `--port` 改监听地址，例如 `--host 0.0.0.0 --port 8000`。
+启动后保持该终端不关闭，再用客户端连接对应地址。
+
+**方式四：Docker**
+
+```bash
+docker build -t date-tool-mcp .
+docker run -p 8000:8000 date-tool-mcp
+```
 
 ### 4. 客户端配置
 
@@ -107,9 +121,17 @@ SSE 模式配置：
 
 本服务为纯 Python 实现，无外部服务依赖，可直接托管部署：
 
-- 启动命令：`python server.py`（stdio）
-- 依赖安装：`pip install -r requirements.txt`
+- 依赖安装：`pip install -r requirements.txt`（或 `pip install .`）
+- 启动命令（HTTP 对外服务）：`python -m date_tool_mcp --transport streamable-http --host 0.0.0.0 --port 8000`
+- 容器方式：按根目录 `Dockerfile` 构建，容器内同样以 `streamable-http` 启动并暴露 8000 端口
 - 无需任何 API Key / 环境变量 / 数据库
+
+项目具备标准 Python 包结构（`pyproject.toml` + `src/date_tool_mcp`），命令入口声明为：
+
+```toml
+[project.scripts]
+date-tool-mcp = "date_tool_mcp:main"
+```
 
 ### 6. 用代码调用（LangChain 示例）
 
@@ -176,8 +198,14 @@ npx @modelcontextprotocol/inspector python server.py
 
 ```
 date-tool-mcp/
-├── server.py          # MCP 服务端主文件（FastMCP 实现，含 get_today 工具）
-├── requirements.txt   # 依赖清单
+├── src/date_tool_mcp/
+│   ├── __init__.py    # 包入口 main()，支持 --transport / --host / --port
+│   ├── __main__.py    # 支持 python -m date_tool_mcp
+│   └── server.py      # MCP 服务实现（FastMCP + get_today 工具）
+├── server.py          # 根目录直跑脚本（python server.py，stdio）
+├── pyproject.toml     # 包元信息、依赖、命令入口（[project.scripts]）
+├── Dockerfile         # 容器构建，默认 streamable-http 对外服务
+├── requirements.txt   # 依赖清单（pip 直装方式）
 ├── chatmcp.yaml       # ChatMCP 市场配置
 └── README.md          # 本说明文件
 ```
